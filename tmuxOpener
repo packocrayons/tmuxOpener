@@ -1,0 +1,13 @@
+#attach to the next available tmux session that's not currently occupied
+if [[ -z "$TMUX" ]] && [ "SSH_CONNECTION" != "" ];
+then
+        for i in `seq 0 10`; do #max of 10 sessions - don't want an infinite loop until we know this works
+                SESH=`tmux list-clients -t "$USER$i" 2>/dev/null` #send errors to /dev/null - if the session doesn't exist it will throw an error, but we don't care
+                if [[ -z "$SESH" ]] #if there's no clients currently connected to this session
+                then
+                        tmux attach-session -t "$USER$i" || tmux new-session -s "$USER$i" #attach to it
+                        break #found one and using it, don't keep looping (this will actually run after tmux exits AFAICT)
+                fi #otherwise, increment session counter and keep going
+        done
+
+fi
