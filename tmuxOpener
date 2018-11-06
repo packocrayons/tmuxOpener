@@ -1,13 +1,22 @@
 #attach to the next available tmux session that's not currently occupied
 if [[ -z "$TMUX" ]] && [ "SSH_CONNECTION" != "" ];
 then
-        for i in `seq 0 10`; do #max of 10 sessions - don't want an infinite loop until we know this works
-                SESH=`tmux list-clients -t "$USER$i" 2>/dev/null` #send errors to /dev/null - if the session doesn't exist it will throw an error, but we don't care
+	attached=false
+        for i in $(tmux list-sessions | sed -n 's/^\([0-9A-Za-z]*\):.*$/\1/p'); do #loop over all the existing sessions and check if something is connected
+                SESH=`tmux list-clients -t "$i" 2>/dev/null` #send errors to /dev/null - if the session doesn't exist it will throw an error, but we don't care
                 if [[ -z "$SESH" ]] #if there's no clients currently connected to this session
                 then
-                        tmux attach-session -t "$USER$i" || tmux new-session -s "$USER$i" #attach to it
+                        tmux attach-session -t "$i" #attach to it
+			attached=true
                         break #found one and using it, don't keep looping (this will actually run after tmux exits AFAICT)
                 fi #otherwise, increment session counter and keep going
         done
+	if [ "$attached" = "false" ]
+	then
+		#the following breaks if someone creates a session without specifying a name that follows $user$num
+		counter=`echo $i | sed -n 's/[A-Za-z]*\([0-9]*\)/\1/p'` #making the assumption that the session is of the format $user$counter. This regex will die
+		((counter++)) #If a string/blank pops out, this will default to 1
+		tmux new-session -s "$USER$counter" #may still create a session if it doesn't exist, may crash. Who knows
+	fi
 
 fi
